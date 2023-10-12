@@ -1,0 +1,9 @@
+torch>=1.9.0
+matplotlib
+otter-grader==1.0.0
+wget
+tqdm
+pandas==1.5.3
+transformers==4.26.0
+tokenizers==0.13.2
+datasets==2.9.0

@@ -1,0 +1,8 @@
+torch
+matplotlib
+otter-grader==1.0.0
+pandas==1.5.3
+transformers
+datasets
+tokenizers
+wget

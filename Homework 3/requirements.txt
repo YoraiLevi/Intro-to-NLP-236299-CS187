@@ -1,0 +1,3 @@
+nltk==3.5
+wget
+tqdm

@@ -1,0 +1,11 @@
+nltk
+cryptography
+torch>=1.9.0
+func_timeout
+otter-grader==1.0.0
+tqdm
+pandas==1.5.3
+transformers==4.26.0
+tokenizers==0.13.2
+datasets==2.9.0
+wget

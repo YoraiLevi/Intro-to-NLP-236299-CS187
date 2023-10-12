@@ -1,0 +1,785 @@
+### Sample grammar for ATIS queries
+### CS187
+### (Project segment 4 distribution version)
+
+## This grammar is intended to cover ATIS flight ID queries only. It
+## assumes that such queries are a single noun phrase, perhaps
+## preceded and followed by other text that can be ignored. (The
+## nonterminals PREIGNORE and POSTIGNORE capture this text.)
+##
+## Conventions used in this grammar:
+##
+## The start nonterminal is S. Other nonterminal names are typically
+## syntactic phrase types (e.g., NP, PP, Det, P) followed by a
+## semantic category (e.g., FLIGHT, AIRLINE), separated by an underscore.
+## The phrase type TERM is used for lexical lists for a particular semantic
+## category.
+## 
+## Augmentations for these grammar rules follow a standard convention for the 
+## types of the values associated with different nonterminals. We document these
+## conventions here:
+##
+## Values: SQL query (as a string), e.g.,
+##   "SELECT flight.flight_id FROM flight WHERE true"
+##
+##     S
+##
+## Values: SQL condition (that is, appropriate for a WHERE clause body) 
+## for a relation `flight`, e.g.,
+##   "flight.airline_code = 'UA'"
+##
+##     NOM_FLIGHT  
+##     N_FLIGHT
+##     PP
+##     PP_*
+##     ADJ
+##     ADJ_*
+##     TERM_FLIGHT
+##     etc.
+
+S -> SD : distinct
+
+SD -> NP_FLIGHT                          : first
+        | PREIGNORE NP_FLIGHT            : second
+        | NP_FLIGHT POSTIGNORE           : first
+        | PREIGNORE NP_FLIGHT POSTIGNORE : second
+
+NP_FLIGHT -> DET NOM_FLIGHT : second
+        | NOM_FLIGHT        : first
+
+NOM_FLIGHT -> N_FLIGHT      : first
+        | ADJ NOM_FLIGHT    : cond_and_cond
+
+N_FLIGHT -> TERM_FLIGHT     : first
+        | N_FLIGHT PP       : cond_and_cond
+
+TERM_FLIGHT -> 'flights'    : null_condition
+        | 'flight'
+        | 'to' 'fly'
+
+## Pre-noun (primarily adjectival) flight modifiers
+ADJ -> ADJ_AIRLINE  : first
+        | ADJ_DATE
+        | ADJ_FLIGHTTYPE
+        | ADJ_TIME
+        | ADJ_PLACE
+        | ADJ_PRICE
+        | ADJ_CLASS
+        | ADJ_FOOD
+
+## Post-noun (prepositional phrase and relative clause) flight modifiers
+PP -> PP_AIRLINE    : first
+        | PP_DATE
+        | PP_TIME
+        | PP_PLACE
+        | PP_PRICE
+        | PP_CLASS
+        | PP_FOOD
+
+DET -> 'all' 'the'  : ignore
+        | 'all'
+        | 'a'
+        | 'an'
+        | 'the'
+        | 'any'
+        | 'all' 'of' 'the'
+        | 'this'
+        | 'this' 'coming'
+        | 'next'
+        | TERM_WEEKDAY "'s"
+
+#### FLIGHT PROPERTIES ####
+
+## Airline information
+
+ADJ_AIRLINE -> TERM_AIRLINE             : first
+
+PP_AIRLINE -> P_AIRLINE TERM_AIRLINE    : second
+
+P_AIRLINE -> 'on'   : ignore
+        | 'using'
+        | 'of'
+        | 'with'
+
+TERM_AIRLINE -> TERM_AIRBRAND               : airline_code
+        | TERM_AIRBRAND TERM_AIRBRANDTYPE   : lambda code, ig: airline_code(code)
+
+TERM_AIRBRAND -> 'continental'        : constant('CO')
+        | 'american'                  : constant('AA')
+        | 'united'                    : constant('UA')
+        | 'northwest'                 : constant('NW')
+        | 'us'                        : constant('US')
+        | 'delta'                     : constant('DL')
+        | 'air' 'canada'              : constant('AC')
+        | 'midwest' 'express'         : constant('YX') 
+        | 'twa' | 'trans' 'world'     : constant('TW')
+
+TERM_AIRBRANDTYPE -> 'airline'        : ignore
+        | 'airlines'
+        | 'air'
+
+## Flight type information
+
+ADJ_FLIGHTTYPE -> ADJ_FLIGHTTYPESIMPLE
+        | ADJ_FLIGHTTYPESIMPLE 'and' ADJ_FLIGHTTYPE
+        | ADJ_FLIGHTTYPESIMPLE 'or' ADJ_FLIGHTTYPE
+
+ADJ_FLIGHTTYPESIMPLE -> 'round' 'trip'
+        | 'round-trip'
+        | 'return'
+        | 'one' 'way'
+        | 'nonstop'
+        | 'direct'
+        | 'connecting'
+
+## Other properties (cost, class, food)
+
+ADJ_PRICE -> 'cheapest'
+        | 'lowest' 'cost'
+        | 'least' 'expensive'
+        | 'inexpensive'
+        | 'cheap'
+
+        | 'expensive'
+        | 'highest' 'cost'
+        | 'most' 'expensive'
+
+PP_PRICE -> 'less' 'than' AMOUNT 'dollars'
+
+        | 'with' 'the' 'lowest' 'fare'
+        | 'the' 'cheapest' 'way' 'possible'
+
+        | 'with' 'the' 'highest' 'fare'
+
+ADJ_CLASS -> 'economy'
+        | 'thrift' 'economy'
+        | 'first' 'class'
+        | 'transcontinental'
+        | 'available'
+        | 'possible'
+
+PP_CLASS -> ADJ_CLASS
+
+ADJ_FOOD -> NP_FOOD
+
+PP_FOOD -> P_FOOD NP_FOOD
+
+NP_FOOD -> 'dinner'
+        | 'lunch'
+        | 'breakfast'
+        | 'a' 'meal'
+
+P_FOOD -> 'serving'
+        | 'with'
+
+#### DATES ####
+
+ADJ_DATE -> TERM_WEEKDAY            : first
+
+PP_DATE -> P_DATE NP_DATE           : second
+        | NP_DATE                   : first
+
+P_DATE -> 'on'                      : ignore
+        | 'returning' 'on'
+        | 'of'
+        | 'for'
+        | 'next'
+        | 'the' 'next'
+        | 'in' 'the' 'next'
+        | 'of' 'next'
+        | 'leaving'
+        | 'departing'
+        | 'departing' 'on'
+        | 'which' 'leave'
+        | 'leaving' 'on'
+
+        | 'arriving'
+        | 'arriving' 'on'
+        | 'that' 'arrive' 'on'
+        | 'which' 'arrive' 'on'
+        | 'a' 'week' 'from'
+
+NP_DATE -> TERM_WEEKDAY             : first
+        | 'a' TERM_WEEKDAY
+        | 'this' TERM_WEEKDAY
+        | 'this' 'coming'
+        | TERM_WEEKDAY ADJ_TIME
+        | NP_MDYDATE
+        | 'saturdays'
+        | 'sundays'
+        | 'mondays'
+        | 'tuesdays'
+        | 'wednesdays'
+        | 'thursdays'
+        | 'fridays'
+        | 'day'
+        | 'week'
+        | 'today'
+        | 'tomorrow'
+        | 'the' 'day' 'after' 'tomorrow'
+        | 'weekdays'
+
+NP_MDYDATE -> TERM_MONTH TERM_DAY YEAR                                                  : ignore
+        | TERM_MONTH TERM_DAY
+        | 'the' TERM_DAY 'of' TERM_MONTH
+        | TERM_DAY 'of' TERM_MONTH
+        | 'the' TERM_DAY
+        | TERM_MONTH TERM_DAY 'or' TERM_DAY
+        | 'either' TERM_MONTH TERM_DAY 'or' TERM_DAY
+        | 'either' 'the' TERM_DAY 'or' 'the' TERM_DAY 'of' TERM_MONTH
+        | 'the' TERM_DAY 'or' TERM_DAY
+        | 'either' 'the' TERM_DAY 'or' 'the' TERM_DAY
+        | 'the' TERM_DAY 'of' TERM_MONTH 'or' 'the' TERM_DAY 'of' TERM_MONTH
+        | 'either' 'the' TERM_DAY 'of' TERM_MONTH 'or' 'the' TERM_DAY 'of' TERM_MONTH
+        
+TERM_WEEKDAY -> 'saturday'            :  constant(weekday(_RHS[0]))
+        | 'sunday'
+        | 'monday'
+        | 'tuesday'
+        | 'wednesday'
+        | 'thursday'
+        | 'friday'
+        | 'weekday'
+        
+TERM_MONTH -> 'january'               : constant(month_name(_RHS[0]))
+        | 'february' 
+        | 'march' 
+        | 'april' 
+        | 'may' 
+        | 'june' 
+        | 'july' 
+        | 'august' 
+        | 'september' 
+        | 'october' 
+        | 'november' 
+        | 'december'
+        
+TERM_DAY -> 'first'                   : constant(1)
+        | 'second'                    : constant(2)
+        | 'third'                     : constant(3)
+        | 'fourth'                    : constant(4)
+        | 'fifth'                     : constant(5)
+        | 'sixth'                     : constant(6)
+        | 'seventh'                   : constant(7)
+        | 'eighth'                    : constant(8)
+        | 'ninth'                     : constant(9)
+        | 'tenth'                     : constant(10)
+        | 'eleventh'                  : constant(11)
+        | 'twelfth'                   : constant(12)
+        | 'thirteenth'                : constant(13)
+        | 'fourteenth'                : constant(14)
+        | 'fifteenth'                 : constant(15)
+        | 'sixteenth'                 : constant(16)
+        | 'seventeenth'               : constant(17)
+        | 'eighteenth'                : constant(18)
+        | 'nineteenth'                : constant(19)
+        | 'twentieth'                 : constant(20)
+        | 'twenty-first'              : constant(21)
+        | 'twenty' 'first'            : constant(21)
+        | 'twenty-second'             : constant(22)
+        | 'twenty' 'second'           : constant(22)
+        | 'twenty-third'              : constant(23)
+        | 'twenty' 'third'            : constant(23)
+        | 'twenty-fourth'             : constant(24)
+        | 'twenty' 'fourth'           : constant(24)
+        | 'twenty-fifth'              : constant(25)
+        | 'twenty' 'fifth'            : constant(25)
+        | 'twenty-sixth'              : constant(26)
+        | 'twenty' 'sixth'            : constant(26)
+        | 'twenty-seventh'            : constant(27)
+        | 'twenty' 'seventh'          : constant(27)
+        | 'twenty-eighth'             : constant(28)
+        | 'twenty' 'eighth'           : constant(28)
+        | 'twenty-ninth'              : constant(29)
+        | 'twenty' 'ninth'            : constant(29)
+        | 'thirtieth'                 : constant(30)
+        | 'thirty-first'              : constant(31)
+        | 'thirty' 'first'            : constant(31)
+        | 'one'                       : constant(1)
+        | 'two'                       : constant(2)
+        | 'three'                     : constant(3)
+        | 'four'                      : constant(4)
+        | 'five'                      : constant(5)
+        | 'six'                       : constant(6)
+        | 'seven'                     : constant(7)
+        | 'eight'                     : constant(8)
+        | 'nine'                      : constant(9)
+        | 'ten'                       : constant(10)
+        | 'eleven'                    : constant(11)
+        | 'twelve'                    : constant(12)
+        | 'thirteen'                  : constant(13)
+        | 'fourteen'                  : constant(14)
+        | 'fifteen'                   : constant(15)
+        | 'sixteen'                   : constant(16)
+        | 'seventeen'                 : constant(17)
+        | 'eighteen'                  : constant(18)
+        | 'nineteen'                  : constant(19)
+        | 'twenty'                    : constant(20)
+        | 'twenty' 'one'              : constant(21)
+        | 'twenty' 'two'              : constant(22)
+        | 'twenty' 'three'            : constant(23)
+        | 'twenty' 'four'             : constant(24)
+        | 'twenty' 'five'             : constant(25)
+        | 'twenty' 'six'              : constant(26)
+        | 'twenty' 'seven'            : constant(27)
+        | 'twenty' 'eight'            : constant(28)
+        | 'twenty' 'nine'             : constant(29)
+        | 'thirty'                    : constant(30)
+        | 'thirty' 'one'              : constant(31)
+
+TERM_YEAR -> '1991'                   : constant(int(_RHS[0]))
+        | '1992'
+
+#### TIMES ####
+
+PP_TIME -> P_TIME NP_TIME                   : lambda P_TIME, NP_TIME: P_TIME(NP_TIME)
+
+P_TIME -> 'that' 'arrive' 'before'          : lambda: lambda t: f'flight.arrival_time < {t}'
+        | 'that' 'arrives' 'before'
+        | 'arriving' 'before'
+        | 'arrival' 'by'
+        | 'which' 'arrive' 'before'
+
+        | 'departing' 'before'              : lambda: lambda t: f'flight.departure_time < {t}'
+        | 'before'
+        | 'that' 'leaves' 'before'
+        | 'by'
+    
+        | 'that' 'return' 'around'          : lambda: lambda t: f"flight.arrival_time >= {add_delta(miltime(t), -15).strftime('%H%M')} AND flight.arrival_time <= {add_delta(miltime(t), 15).strftime('%H%M')}"
+        | 'that' 'gets' 'in' 'around'
+        | 'arriving' 'around'
+        | 'arriving' 'about'
+        | 'that' 'arrive' 'soon' 'after'
+
+        | 'around'
+
+        | 'arrives'
+        | 'arriving' 'at'
+        | 'arriving'
+
+        | 'leaving' 'at'                    : lambda: lambda t: f"flight.departure_time >= {add_delta(miltime(t), -15).strftime('%H%M')} AND flight.departure_time <= {add_delta(miltime(t), 15).strftime('%H%M')}"
+        | 'at'
+        | 'leaving'
+        | 'in'
+        | 'departing' 'at'
+        | 'on'
+        | 'that' 'leaves' 'at'
+        
+        | 'arriving' 'after'                : lambda: lambda t: f'flight.arrival_time > {t}'
+        | 'which' 'arrives' 'after'
+        | 'that' 'arrives' 'after'
+
+        | 'which' 'leave' 'after'           : lambda: lambda t: f'flight.departure_time > {t}'
+        | 'leaving' 'after'
+        | 'after'
+        | 'departing' 'after'
+        | 'departing' 'in'
+        | 'that' 'depart' 'after'
+        | 'that' 'leaves' 'in'
+
+NP_TIME -> TERM_TIME                  : first
+        | 'afternoons'                : constant(1200)
+        | 'the' 'afternoon'
+        | 'the' 'late' 'afternoon'    : constant(1600)
+        | 'evenings'                  : constant(1800)
+        | 'the' 'evening'
+        | 'mornings'                  : constant(800)
+        | 'the' 'morning'
+        | 'the' 'early' 'am' 
+        | 'as' 'early' 'as' 'possible' 
+        | 'earliest' 'possible' 'time' 
+        | 'the' 'day'                 : constant(1200)
+        | 'as' 'soon' 'thereafter' 'as' 'possible' 
+        | UNK
+
+
+ADJ_TIME -> 'lunch' 'time'            : constant(depart_around(1200))
+        | 'evening'                   : constant(depart_around(1800))
+        | 'dinnertime'
+        | 'late' 
+        | 'night'                     : constant(depart_around(2000))
+        | 'latest' 'possible' 
+        | 'latest'
+        | 'tonight' 
+        | 'morning'                   : constant(depart_around(800))
+        | 'early' 
+        | 'earliest' 'possible' 
+        | 'earliest' 
+        | 'afternoon'                 : constant(depart_around(1600))
+        | SIMPLETIME                  : first
+
+TERM_TIME -> 'one' | '1'              : constant(100)
+        | 'two' | '2'                 : constant(200)
+        | 'three' | '3'               : constant(300)
+        | 'four' | '4'                : constant(400)
+        | 'five' | '5'                : constant(500)
+        | 'six' | '6'                 : constant(600)
+        | 'seven' | '7'               : constant(700)
+        | 'eight' | '8'               : constant(800)
+        | 'nine' | '9'                : constant(900)
+        | 'ten' | '10'                : constant(1000)
+        | 'eleven' | '11'             : constant(1100)
+        | 'twelve' | '12' | 'noon'    : constant(1200)
+        | 'midnight'                  : constant(0)
+        | TERM_TIME TERM_TIMEMOD      : lambda Time, Mod: Time + Mod
+
+TERM_TIMEMOD -> 'am'                  : constant(0)
+        | 'oclock'
+        | 'o' "'clock"
+        | 'o' 'clock'
+        | 'noon' 
+        | 'pm'                        : constant(1200)
+        | 'midnight' 
+
+#### PLACES ####
+
+ADJ_PLACE -> N_PLACE                            : first
+
+N_PLACE -> TERM_PLACE                           : first
+        | TERM_AIRPORT
+
+PP_PLACE -> P_PLACE_TO N_PLACE                  : to_place
+        | P_PLACE_FROM N_PLACE                  : from_place
+        | P_PLACE_VIA N_PLACE                   : via_place
+        | P_PLACE_BETWEEN                       : first
+
+P_PLACE_BETWEEN -> BETWEEN N_PLACE AND N_PLACE  : lambda ig1, place1, ig2, place2: between_places(place1, place2)
+
+BETWEEN -> 'between'    : ignore
+AND -> 'and'            : ignore
+
+
+P_PLACE_TO -> 'to'                              : ignore
+        | 'that' 'arrive' 'at'
+        | 'that' 'arrives' 'in'
+        | 'coming' 'back' 'to'
+        | 'that' 'go' 'to'
+        | 'and' 'then' 'to'
+        | 'arriving' 'in'
+        | 'and' 'arriving' 'in'
+        | 'and' 'arrive' 'in'
+        | 'to' 'arrive' 'in'
+        | 'arrive' 'in'
+        | 'going' 'to'
+        | 'into'
+        | 'for'
+        | 'with' 'the' 'destination' 'city' 'of'
+        | 'arriving'
+        | 'goes' 'to'
+        | 'flying' 'into'
+        | 'goes' 'on' 'to'
+        | 'reaching'
+        | 'in'
+        | 'and' 'then'
+        | 'arriving' 'to'
+
+P_PLACE_FROM -> 'from'                          : ignore
+        | 'leaving'
+        | 'return' 'from'
+        | 'leaving' 'from'
+        | 'departing' 'from'
+        | 'departing'
+        | 'go' 'from'
+        | 'going' 'from'
+        | 'back' 'from'
+        | 'that' 'goes' 'from'
+        | 'that' 'departs'
+        | 'which' 'leaves' 'from'
+        | 'which' 'leave'
+        | 'that' 'leave'
+        | 'originating' 'in'
+        | 'leave'
+        | 'out' 'of'
+        | 'leaves' 'from'
+        | 'to' 'get' 'from'
+
+P_PLACE_VIA -> 'via'                            : ignore
+        | 'with' 'a' 'stopover' 'in'
+        | 'with' 'a' 'layover' 'in'
+        | 'with' 'a' 'stopover' 'at'
+        | 'and' 'a' 'stopover' 'in'
+        | 'stop' 'in'
+        | 'stopping' 'in'
+        | 'make' 'a' 'stop' 'in'
+        | 'with' 'a' 'stop' 'in'
+        | 'with' 'one' 'stop' 'in'
+        | 'go' 'through'
+        | 'which' 'go' 'through'
+        | 'makes' 'a' 'stopover' 'in'
+        | 'that' 'stops' 'in'
+        | 'that' 'stops' 'over' 'in'
+        | 'by' 'way' 'of'
+        | 'connecting' 'through'
+        | 'that' 'will' 'stop' 'in'
+        | 'which' 'connects' 'in'
+        | 'arriving' 'and' 'departing' 'at'
+
+## Place terms includes city and airport names. The provided semantic augmentations
+## return a SQL query that generates a list of airport codes for the place. For 
+## airport names, like "logan", it generates a query like
+## 
+##    SELECT airport.airport_code 
+##    FROM airport 
+##    WHERE airport.airport_name = "LOGAN INTERNATIONAL"
+##
+## For city names, like "boston", it generates a query like
+##
+##    SELECT airport_service.airport_code 
+##    FROM airport_service 
+##    WHERE airport_service.city_code IN
+##        (SELECT city.city_code 
+##         FROM city 
+##         WHERE city.city_name = "BOSTON")
+##
+## Note the use of the appropriate field values found in the ATIS database, which are 
+## quoted uppercase strings like "LOGAN INTERNATIONAL" or "BOSTON"
+
+TERM_AIRPORT -> TERM_AIRPORT 'airport'           : first
+     | TERM_AIRPORT 'airports'
+
+     | 'baltimore/washington' 'international'    : constant(airports_from_airport_name(' '.join(_RHS)))
+     | 'burbank'
+     | 'buttonville'
+     | 'charlotte/douglas' 'international'
+     | 'cincinnati/northern' 'kentucky' 'intl.'
+     | 'dallas/fort' 'worth' 'international'
+     | 'detroit' 'city'
+     | 'dorval' 'international'
+     | 'dulles' 'international'
+     | 'general' 'mitchell' 'international'
+     | 'greater' 'pittsburgh' 'international'
+     | 'hobby'
+     | 'hopkins' 'international'
+     | 'houston' 'intercontinental'
+     | 'indianapolis' 'international'
+     | 'john' 'f.' 'kennedy' 'international'
+     | 'kansas' 'city' 'international'
+     | 'la' 'guardia'
+     | 'lambert' 'st.' 'louis' 'international'
+     | 'lester' 'b.' 'pearson' 'international'
+     | 'lindbergh' 'field/san' 'diego' 'international'
+     | 'logan' 'international'
+     | 'long' 'beach' 'municipal'
+     | 'los' 'angeles' 'international'
+     | 'love' 'field'
+     | 'mccarran' 'international'
+     | 'memphis' 'international'
+     | 'metropolitan' 'oakland' 'international'
+     | 'metropolitan' 'wayne' 'county'
+     | 'miami' 'international'
+     | 'midway'
+     | 'minneapolis/st.' 'paul' 'international'
+     | 'mirabel'
+     | 'nashville' 'international'
+     | 'newark' 'international'
+     | "o'hare" 'international'
+     | 'ontario' 'international'
+     | 'orlando' 'international'
+     | 'philadelphia' 'international'
+     | 'port' 'columbus' 'international'
+     | 'salt' 'lake' 'city' 'international'
+     | 'san' 'francisco' 'international'
+     | 'san' 'jose' 'international'
+     | 'seattle/tacoma' 'international'
+     | 'sky' 'harbor' 'international'
+     | 'st.' 'petersburg/clearwater' 'international'
+     | 'stapleton' 'international'
+     | 'tampa' 'international'
+     | 'toronto' 'island'
+     | 'washington' 'national'
+     | 'westchester' 'county'
+     | 'william' 'b.' 'hartsfield' 'atlanta' 'intl.'
+
+     ## airport name synonyms
+     | 'bwi'                           : constant(airports_from_airport_name('baltimore/washington international'))
+     | 'douglas'                       : constant(airports_from_airport_name('charlotte/douglas international'))
+     | 'dfw'                           : constant(airports_from_airport_name('dallas/fort worth international'))
+     | 'dorval'                        : constant(airports_from_airport_name('dorval international'))
+     | 'dulles'                        : constant(airports_from_airport_name('dulles international'))
+     | 'general mitchell'              : constant(airports_from_airport_name('general mitchell international'))
+     | 'hopkins'                       : constant(airports_from_airport_name('hopkins international'))
+     | 'jfk'                           : constant(airports_from_airport_name('john f. kennedy international'))
+         | 'john' 'f.' 'kennedy'
+         | 'kennedy'
+     | 'laguardia'                     : constant(airports_from_airport_name('la guardia'))
+     | 'lambert'                       : constant(airports_from_airport_name('lambert st. louis international'))
+     | 'pearson'                       : constant(airports_from_airport_name('lester b. pearson international'))
+     | 'lindbergh'                     : constant(airports_from_airport_name('lindbergh field/san diego international'))
+     | 'logan'                         : constant(airports_from_airport_name('logan international'))
+     | 'mccarran'                      : constant(airports_from_airport_name('mccarran international'))
+
+
+TERM_PLACE -> 'atlanta'                : constant(airports_from_city(' '.join(_RHS)))
+        | 'austin' 
+        | 'baltimore' 
+        | 'boston' 
+        | 'burbank' 
+        | 'charlotte' 
+        | 'chicago' 
+        | 'cincinnati' 
+        | 'cleveland' 
+        | 'columbus' 
+        | 'dallas' 
+        | 'denver' 
+        | 'detroit' 
+        | 'houston'
+        | 'indianapolis' 
+        | 'kansas' 'city' 
+        | 'las' 'vegas' 
+        | 'long' 'beach' 
+        | 'los' 'angeles' 
+        | 'memphis' 
+        | 'miami' 
+        | 'milwaukee' 
+        | 'minneapolis' 
+        | 'montreal' 
+        | 'nashville' 
+        | 'new' 'york' 
+        | 'newark'
+        | 'oakland' 
+        | 'ontario' 
+        | 'orlando' 
+        | 'philadelphia' 
+        | 'phoenix'
+        | 'pittsburgh' 
+        | 'salt' 'lake' 'city'
+        | 'san' 'diego'
+        | 'san' 'francisco'
+        | 'san' 'jose'
+        | 'seattle'
+        | 'st.' 'louis'
+        | 'st.' 'paul'
+        | 'st.' 'petersburg'
+        | 'tacoma'
+        | 'tampa' 
+        | 'toronto' 
+        | 'washington'
+        | 'dc' 
+        | 'westchester' 'county'
+
+        ## city name synonyms
+        | 'cleveland' 'ohio'          : constant(airports_from_city('cleveland'))
+        | 'dallas' 'fort' 'worth'     : constant(airports_from_city('dallas'))
+        | 'fort' 'worth'              : constant(airports_from_city('dallas'))
+        | 'denver' 'colorado'         : constant(airports_from_city('denver'))
+        | 'montreal' 'quebec'         : constant(airports_from_city('montreal'))
+        | 'montreal' 'canada'         : constant(airports_from_city('montreal'))
+        | 'new' 'york' 'city'         : constant(airports_from_city('new york')) 
+        | 'newark' 'new' 'jersey'     : constant(airports_from_city('newark'))
+        | 'oakland' 'california'      : constant(airports_from_city('oakland'))  
+        | 'orlando' 'florida'         : constant(airports_from_city('new york'))  
+        | 'philly'                    : constant(airports_from_city('philadelphia'))
+        | 'san' 'diego' 'california'  : constant(airports_from_city('san diego'))
+        | 'tacoma' 'washington'       : constant(airports_from_city('tacoma'))
+        | 'washington' 'dc'           : constant(airports_from_city('washington'))
+        | 'westchester'               : constant(airports_from_city('westchester')) 
+
+#### IGNORABLE ####
+
+PREIGNORE -> PREIGNORESYMBOL          : ignore
+    | PREIGNORESYMBOL PREIGNORE
+    
+PREIGNORESYMBOL -> 'me'               : ignore
+        | 'show' 
+        | 'now' 
+        | 'only' 
+        | 'can' 
+        | 'you' 
+        | 'the' 
+        | 'itinerary' 
+        | 'of' 
+        | 'also' 
+        | 'a' 
+        | 'list' 
+        | 'could' 
+        | 'give' 
+        | 'which' 
+        | 'what' 
+        | 'is' 
+        | "what's" 
+        | 'are' 
+        | 'my' 
+        | 'choices' 
+        | 'for' 
+        | 'i' 
+        | 'would' 
+        | 'like' 
+        | "i'd" 
+        | 'to' 
+        | 'see' 
+        | 'have' 
+        | 'make' 
+        | 'book' 
+        | 'find' 
+        | 'information' 
+        | 'on' 
+        | 'know' 
+        | 'some' 
+        | 'hello' 
+        | 'yes' 
+        | 'please' 
+        | 'repeat' 
+        | 'do' 
+        | 'have' 
+        | 'there' 
+        | 'need' 
+        | 'hi' 
+        | 'get' 
+        | 'may' 
+        | 'listing' 
+        | 'listings' 
+        | 'travel' 
+        | 'arrangements' 
+        | 'okay' 
+        | 'want' 
+        | 'tell' 
+        | 'about' 
+        | 'how' 
+        | 'would' 
+        | 'be' 
+        | 'able' 
+        | 'put' 
+        | 'requesting' 
+        | "i'm" 
+        | 'looking' 
+        | 'display' 
+
+POSTIGNORE -> POSTIGNORESYMBOL               : ignore
+        | POSTIGNORESYMBOL POSTIGNORE
+    
+POSTIGNORESYMBOL -> 'please'                 : ignore
+        | 'there' 
+        | 'are' 
+        | 'currently' 
+        | 'do' 
+        | 'you' 
+        | 'have' 
+        | 'fares' 
+        | 'information' 
+        | 'i' 
+        | 'want' 
+        | 'would' 
+        | 'like' 
+        | 'the' 
+        | 'flight' 
+        | 'be' 
+        | 'go' 
+        | 'departures' 
+        | 'is' 
+        | 'such' 
+        | 'a' 
+        | 'that' 
+        | 'serves' 
+        | 'both' 
+        | 'and' 
+        | 'along' 
+        | 'with' 
+        | 'can' 
+        | 'get' 
+        | "i'd" 
+        | 'traveling' 
+        | 'for' 
+        | 'me' 
+        | UNK 
+        | '.' 
+        | '?'
